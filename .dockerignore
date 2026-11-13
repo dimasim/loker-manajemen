@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+.git
+.gitignore
+.env
+.env.development
+.env.staging
+.env.production
+README.md
+docs
+pg_data
+*.log
+

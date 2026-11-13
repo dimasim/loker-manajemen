@@ -1,0 +1,75 @@
+services:
+  # 1. Database PostgreSQL 16
+  postgres:
+    image: postgres:16-alpine
+    container_name: loker_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_dev_password}
+      POSTGRES_DB: ${DB_NAME:-loker_tracker_dev}
+    ports:
+      - "${DB_PORT:-5434}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-loker_tracker_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - loker_dev_net
+
+  # 2. Backend Service (Express.js + TypeScript + Node 22)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: loker_backend_dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: ${BACKEND_PORT:-4000}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres_dev_password}@postgres:5432/${DB_NAME:-loker_tracker_dev}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_dev_minimum_32_characters_long}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-super_secret_refresh_key_dev_minimum_32_chars}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - loker_dev_net
+
+  # 3. Frontend Service (Vue 3 + Vite + Node 22)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: loker_frontend_dev
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: /api
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - loker_dev_net
+
+volumes:
+  postgres_dev_data:
+    driver: local
+
+networks:
+  loker_dev_net:
+    driver: bridge
+
