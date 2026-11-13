@@ -28,3 +28,8 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 
+# Security Audit Reports (Internal & Confidential)
+SECURITY_AUDIT.md
+security-audit.md
+*audit*.md
+
