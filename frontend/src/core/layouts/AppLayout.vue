@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../modules/auth/stores/auth.store';
 import ThemeToggle from '../components/ThemeToggle.vue';
+import PwaInstallPrompt from '../components/PwaInstallPrompt.vue';
 import { Briefcase, LogOut, UserCircle } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -76,5 +77,8 @@ const handleLogout = () => {
     <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-4 text-center text-xs text-slate-400 dark:text-slate-500 transition-colors duration-200">
       Personal Job Application Tracker &bull; Vue 3.5 + Express + PostgreSQL
     </footer>
+
+    <!-- PWA Install Banner -->
+    <PwaInstallPrompt />
   </div>
 </template>
