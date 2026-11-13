@@ -122,3 +122,4 @@ const workTypeColors: Record<string, string> = {
     </div>
   </div>
 </template>
+

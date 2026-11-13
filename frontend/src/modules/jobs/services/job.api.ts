@@ -62,3 +62,4 @@ export class JobApiService {
     await apiClient.delete(`/interviews/${id}`);
   }
 }
+

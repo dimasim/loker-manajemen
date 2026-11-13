@@ -122,3 +122,4 @@ const onDrop = async (e: DragEvent, targetStatus: ApplicationStatus) => {
     </div>
   </div>
 </template>
+

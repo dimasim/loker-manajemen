@@ -205,3 +205,4 @@ export const useJobStore = defineStore('jobs', () => {
     clearSelectedJob,
   };
 });
+

@@ -61,3 +61,4 @@ frontend/src/modules/jobs/
     ├── CreateJobModal.vue          # Formulir modal input loker cepat
     └── JobDetailModal.vue          # Detail loker & catatan jadwal interview
 ```
+

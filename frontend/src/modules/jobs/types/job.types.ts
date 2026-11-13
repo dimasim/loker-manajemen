@@ -82,3 +82,4 @@ export interface CreateInterviewPayload {
   interviewer?: string;
   notes?: string;
 }
+
