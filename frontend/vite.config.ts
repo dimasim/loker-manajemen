@@ -105,6 +105,16 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 600,
   },
+  optimizeDeps: {
+    include: [
+      'vue',
+      'vue-router',
+      'pinia',
+      'axios',
+      'lucide-vue-next',
+      'vuedraggable',
+    ],
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
