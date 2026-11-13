@@ -1,0 +1,111 @@
+name: loker-manajemen-staging
+
+# ============================================================
+# Docker Compose - STAGING Environment
+# - Menggunakan production Dockerfile (compiled artifacts)
+# - Tidak ada bind mount source code
+# - Nginx sebagai gateway/reverse proxy
+# - PostgreSQL dengan named volume
+# ============================================================
+
+services:
+  # ──────────────────────────────────────────
+  # Database: PostgreSQL 16
+  # ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: loker_postgres_staging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-loker_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-loker_password}
+      POSTGRES_DB: ${POSTGRES_DB:-loker_db_staging}
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    networks:
+      - loker_staging_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-loker_user} -d ${POSTGRES_DB:-loker_db_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # Backend: Express.js (compiled JS)
+  # ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: loker_backend_staging
+    environment:
+      NODE_ENV: staging
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-loker_user}:${POSTGRES_PASSWORD:-loker_password}@postgres:5432/${POSTGRES_DB:-loker_db_staging}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    networks:
+      - loker_staging_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # DB Migration (run once, then exits)
+  # ──────────────────────────────────────────
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: loker_migrate_staging
+    command: ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed"]
+    environment:
+      NODE_ENV: staging
+      DATABASE_URL: postgresql://${POSTGRES_USER:-loker_user}:${POSTGRES_PASSWORD:-loker_password}@postgres:5432/${POSTGRES_DB:-loker_db_staging}
+    networks:
+      - loker_staging_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ──────────────────────────────────────────
+  # Frontend: Nginx serving Vue SPA + reverse proxy
+  # ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: loker_frontend_staging
+    ports:
+      - "8080:80"
+    networks:
+      - loker_staging_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+# ──────────────────────────────────────────
+# Named Volumes
+# ──────────────────────────────────────────
+volumes:
+  postgres_staging_data:
+    name: loker_postgres_staging_data
+
+# ──────────────────────────────────────────
+# Networks
+# ──────────────────────────────────────────
+networks:
+  loker_staging_network:
+    name: loker_staging_network
+    driver: bridge
+

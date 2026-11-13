@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { RoleType } from '@prisma/client';
 import { IAuthService, IUserRepository, AuthResult } from './auth.interface';
 import { RegisterDTO, LoginDTO } from './auth.schema';
@@ -97,9 +97,11 @@ export class AuthService implements IAuthService {
       role: user.role,
     };
 
-    return jwt.sign(payload, this.jwtSecret, {
-      expiresIn: this.jwtExpiresIn,
-    });
+    const options: SignOptions = {
+      expiresIn: this.jwtExpiresIn as SignOptions['expiresIn'],
+    };
+
+    return jwt.sign(payload, this.jwtSecret, options);
   }
 }
 

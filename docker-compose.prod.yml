@@ -1,0 +1,160 @@
+name: loker-manajemen-prod
+
+# ============================================================
+# Docker Compose - PRODUCTION Environment
+# - restart: always (auto-recover dari crash)
+# - Resource limits (memory + cpu)
+# - Healthchecks di semua service
+# - Non-root users (enforced di Dockerfile)
+# - Minimal logging config
+# - TIDAK ada port PostgreSQL yang di-expose ke host
+# ============================================================
+
+services:
+  # ──────────────────────────────────────────
+  # Database: PostgreSQL 16
+  # ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: loker_postgres_prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - loker_prod_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+        reservations:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ──────────────────────────────────────────
+  # Backend: Express.js (compiled JS)
+  # ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: loker_backend_prod
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    networks:
+      - loker_prod_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.75"
+        reservations:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ──────────────────────────────────────────
+  # DB Migration (run once before backend starts)
+  # ──────────────────────────────────────────
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: loker_migrate_prod
+    command: ["sh", "-c", "npx prisma migrate deploy"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    networks:
+      - loker_prod_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ──────────────────────────────────────────
+  # Frontend: Nginx serving Vue SPA + reverse proxy
+  # ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: loker_frontend_prod
+    ports:
+      - "80:80"
+    networks:
+      - loker_prod_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/api/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.25"
+        reservations:
+          memory: 64m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ──────────────────────────────────────────
+# Named Volumes
+# ──────────────────────────────────────────
+volumes:
+  postgres_prod_data:
+    name: loker_postgres_prod_data
+
+# ──────────────────────────────────────────
+# Networks (isolated internal network)
+# ──────────────────────────────────────────
+networks:
+  loker_prod_network:
+    name: loker_prod_network
+    driver: bridge
+
